@@ -34,17 +34,17 @@ has been advised of the possibility of such damages.
    Uploaded to Gallery with permission
 #>
 Param ( 
-    [parameter(Mandatory=$true,Position=0)]
+    [parameter(Mandatory = $true, Position = 0)]
     [string] $namespace,
 
-    [parameter(Mandatory=$true,Position=1)]
+    [parameter(Mandatory = $true, Position = 1)]
     [ValidateSet("add", "delete")]
     [string] $operation,
 
-    [parameter(Mandatory=$true,Position=2)]
+    [parameter(Mandatory = $true, Position = 2)]
     [string] $account,
 
-    [parameter(Position=3)]
+    [parameter(Position = 3)]
     [ValidateSet("partialwrite", "enable", "providerwrite", "readsecurity", "writesecurity", "methodexecute", "remoteaccess", "fullwrite")]
     [string[]] $permissions = $null,
 
@@ -60,22 +60,22 @@ Process {
     $ErrorActionPreference = "Stop"
  
     Function Get-AccessMaskFromPermission($permissions) {
-        $WBEM_ENABLE            = 1
-                $WBEM_METHOD_EXECUTE = 2
-                $WBEM_FULL_WRITE_REP   = 4
-                $WBEM_PARTIAL_WRITE_REP              = 8
-                $WBEM_WRITE_PROVIDER   = 0x10
-                $WBEM_REMOTE_ACCESS    = 0x20
-                $WBEM_RIGHT_SUBSCRIBE = 0x40
-                $WBEM_RIGHT_PUBLISH      = 0x80
+        $WBEM_ENABLE = 1
+        $WBEM_METHOD_EXECUTE = 2
+        $WBEM_FULL_WRITE_REP = 4
+        $WBEM_PARTIAL_WRITE_REP = 8
+        $WBEM_WRITE_PROVIDER = 0x10
+        $WBEM_REMOTE_ACCESS = 0x20
+        $WBEM_RIGHT_SUBSCRIBE = 0x40
+        $WBEM_RIGHT_PUBLISH = 0x80
         $READ_CONTROL = 0x20000
         $WRITE_DAC = 0x40000
        
-        $WBEM_RIGHTS_FLAGS = $WBEM_ENABLE,$WBEM_METHOD_EXECUTE,$WBEM_FULL_WRITE_REP,`
-            $WBEM_PARTIAL_WRITE_REP,$WBEM_WRITE_PROVIDER,$WBEM_REMOTE_ACCESS,`
-            $READ_CONTROL,$WRITE_DAC
-        $WBEM_RIGHTS_STRINGS = "Enable","MethodExecute","FullWrite","PartialWrite",`
-            "ProviderWrite","RemoteAccess","ReadSecurity","WriteSecurity"
+        $WBEM_RIGHTS_FLAGS = $WBEM_ENABLE, $WBEM_METHOD_EXECUTE, $WBEM_FULL_WRITE_REP, `
+            $WBEM_PARTIAL_WRITE_REP, $WBEM_WRITE_PROVIDER, $WBEM_REMOTE_ACCESS, `
+            $READ_CONTROL, $WRITE_DAC
+        $WBEM_RIGHTS_STRINGS = "Enable", "MethodExecute", "FullWrite", "PartialWrite", `
+            "ProviderWrite", "RemoteAccess", "ReadSecurity", "WriteSecurity"
  
         $permissionTable = @{}
  
@@ -96,12 +96,13 @@ Process {
     }
  
     if ($PSBoundParameters.ContainsKey("Credential")) {
-        $remoteparams = @{ComputerName=$computerName;Credential=$credential}
-    } else {
-        $remoteparams = @{ComputerName=$computerName}
+        $remoteparams = @{ComputerName = $computerName; Credential = $credential }
+    }
+    else {
+        $remoteparams = @{ComputerName = $computerName }
     }
        
-    $invokeparams = @{Namespace=$namespace;Path="__systemsecurity=@"} + $remoteParams
+    $invokeparams = @{Namespace = $namespace; Path = "__systemsecurity=@" } + $remoteParams
  
     $output = Invoke-WmiMethod @invokeparams -Name GetSecurityDescriptor
     if ($output.ReturnValue -ne 0) {
@@ -121,26 +122,28 @@ Process {
             $domain = $computerName
         }
         $accountname = $domainaccount[1]
-    } elseif ($account.Contains('@')) {
+    }
+    elseif ($account.Contains('@')) {
         $domainaccount = $account.Split('@')
         $domain = $domainaccount[1].Split('.')[0]
         $accountname = $domainaccount[0]
-    } else {
+    }
+    else {
         $domain = $computerName
         $accountname = $account
     }
  
-    $getparams = @{Class="Win32_Account";Filter="Domain='$domain' and Name='$accountname'"}
+    $getparams = @{Class = "Win32_Account"; Filter = "Domain='$domain' and Name='$accountname'" }
  
     $win32account = Get-WmiObject @getparams
  
-    if ($win32account -eq $null) {
+    if ($null -eq $win32account) {
         throw "Account was not found: $account"
     }
  
     switch ($operation) {
         "add" {
-            if ($permissions -eq $null) {
+            if ($null -eq $permissions) {
                 throw "-Permissions must be specified for an add operation"
             }
             $accessMask = Get-AccessMaskFromPermission($permissions)
@@ -149,7 +152,8 @@ Process {
             $ace.AccessMask = $accessMask
             if ($allowInherit) {
                 $ace.AceFlags = $CONTAINER_INHERIT_ACE_FLAG
-            } else {
+            }
+            else {
                 $ace.AceFlags = 0
             }
                        
@@ -162,7 +166,8 @@ Process {
  
             if ($deny) {
                 $ace.AceType = $ACCESS_DENIED_ACE_TYPE
-            } else {
+            }
+            else {
                 $ace.AceType = $ACCESS_ALLOWED_ACE_TYPE
             }
  
@@ -170,7 +175,7 @@ Process {
         }
        
         "delete" {
-            if ($permissions -ne $null) {
+            if ($null -ne $permissions) {
                 throw "Permissions cannot be specified for a delete operation"
             }
        
@@ -189,7 +194,7 @@ Process {
         }
     }
  
-    $setparams = @{Name="SetSecurityDescriptor";ArgumentList=$acl.psobject.immediateBaseObject} + $invokeParams
+    $setparams = @{Name = "SetSecurityDescriptor"; ArgumentList = $acl.psobject.immediateBaseObject } + $invokeParams
  
     $output = Invoke-WmiMethod @setparams
     if ($output.ReturnValue -ne 0) {
